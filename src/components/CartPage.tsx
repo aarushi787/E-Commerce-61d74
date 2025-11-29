@@ -174,6 +174,6 @@ const CartPage: React.FC<CartPageProps> = ({ cartItems, onUpdateQuantity, onRemo
     </div>
   );
 };
-await loadRazorpay();
+// await loadRazorpay();
 export default CartPage;
 
