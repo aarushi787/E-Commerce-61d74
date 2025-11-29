@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
+      # 1. Checkout repository
       - uses: actions/checkout@v3
 
       # 2. Setup Node
@@ -19,19 +19,28 @@ jobs:
         with:
           node-version: 18
 
-      # 3. Install dependencies
+      # 3. Cache Node modules for faster installs
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # 4. Install dependencies
       - name: Install dependencies
         run: npm install
 
-      # 4. Build Vite frontend
+      # 5. Build Vite project
       - name: Build frontend
         run: npm run build
 
-      # 5. Install Firebase CLI
+      # 6. Install Firebase CLI
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      # 6. Deploy to Firebase Hosting
+      # 7. Deploy to Firebase Hosting
       - name: Deploy to Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
