@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { CartItem } from '../types';
 import { ShoppingCartIcon } from './icons';
