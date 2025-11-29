@@ -1,8 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
-// Correct path to project-root/images
-const IMAGES_ROOT = path.join(__dirname, "..", "..", "images");
+// Correct path to YOUR project-root/images
+const IMAGES_ROOT = path.join(__dirname, "../../images");
 
 console.log("[imagesController] Images Root:", IMAGES_ROOT);
 
@@ -30,6 +30,7 @@ exports.getProductImages = (req, res) => {
 
     console.log("[imagesController] checking:", productPath);
 
+    // Folder not found
     if (!fs.existsSync(productPath)) {
       return res.status(404).json({ message: "Product folder not found" });
     }
@@ -38,6 +39,7 @@ exports.getProductImages = (req, res) => {
       fs.statSync(path.join(productPath, file)).isFile()
     );
 
+    // URL to serve images
     const baseUrl = `${req.protocol}://${req.get("host")}/images/${productName}`;
     const urls = files.map(f => `${baseUrl}/${f}`);
 
@@ -45,7 +47,7 @@ exports.getProductImages = (req, res) => {
 
   } catch (err) {
     console.error("Error reading product images:", err);
-    return res.status(500).json({
+    res.status(500).json({
       message: "Failed to read images",
       details: err.message
     });

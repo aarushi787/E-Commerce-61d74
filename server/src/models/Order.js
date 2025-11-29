@@ -1,4 +1,4 @@
-const admin = require('../config/firebase');
+const admin = require('../config/firebase.cjs');
 const Product = require('./Product');
 
 const db = admin.firestore();

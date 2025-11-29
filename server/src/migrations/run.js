@@ -1,6 +1,6 @@
 const path = require('path');
 const bcrypt = require('bcryptjs');
-const admin = require('../config/firebase');
+const admin = require('../config/firebase.cjs');
 const User = require('../models/User');
 
 async function runFirestoreMigrations() {

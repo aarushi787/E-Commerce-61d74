@@ -59,15 +59,24 @@ exports.login = async (req, res, next) => {
     }
 };
 
-exports.getProfile = async (req, res, next) => {
-    try {
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        delete user.password;
-        res.status(200).json(user);
-    } catch (error) {
-        next(error);
-    }
+// exports.getProfile = async (req, res, next) => {
+//     try {
+//         const user = await User.findById(req.user.id);
+//         if (!user) {
+//             return res.status(404).json({ message: 'User not found' });
+//         }
+//         delete user.password;
+//         res.status(200).json(user);
+//     } catch (error) {
+//         next(error);
+//     }
+// };
+
+exports.getProfile = async (req, res) => {
+  try {
+    return res.json({ success: true, user: req.user || null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false });
+  }
 };

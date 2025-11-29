@@ -1,11 +1,11 @@
-const express = require('express');
-const { register, login, getProfile } = require('../controllers/authController');
-const auth = require('../middleware/auth');
+// server/src/routes/auth.js
+const express = require("express");
+const { verifyFirebaseToken } = require("../middleware/auth");
+const { getProfile } = require("../controllers/authController"); // ensure this exists
 
 const router = express.Router();
 
-router.post('/register', register);
-router.post('/login', login);
-router.get('/profile', auth(), getProfile);
+// example protected profile route
+router.get("/profile", verifyFirebaseToken, getProfile);
 
 module.exports = router;

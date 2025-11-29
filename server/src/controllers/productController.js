@@ -1,131 +1,117 @@
-/* ------------------------------------------------
+/* --------------------------------------------------
    IMPORTS
 -------------------------------------------------- */
-const fs = require("fs");
-const path = require("path");
-const { db } = require("../firebase"); // Firestore initialized correctly
+const admin = require("../config/firebase.cjs");
+const db = admin.firestore();
 
-/* ------------------------------------------------
-   IMAGE ROOT PATH
--------------------------------------------------- */
-// const IMAGES_ROOT = path.join(__dirname, "..", "..", "images");
-const IMAGES_ROOT = path.join(__dirname, "..", "..", "images");
-
-/* ------------------------------------------------
-   AUTO-LOAD IMAGES FROM FOLDER
--------------------------------------------------- */
-function loadImagesForProduct(slug, req) {
-  const folderPath = path.join(IMAGES_ROOT, slug);
-
-  if (!fs.existsSync(folderPath)) {
-    console.warn(`⚠ No image folder for slug: ${slug}`);
-    return [];
-  }
-
-  const files = fs
-    .readdirSync(folderPath)
-    .filter((f) => /\.(jpg|jpeg|png|webp)$/i.test(f));
-
-  const baseUrl = `${req.protocol}://${req.get("host")}/images/${slug}`;
-
-  return files.map((file) => `${baseUrl}/${encodeURIComponent(file)}`);
-}
-
-/* ------------------------------------------------
-   GET ALL PRODUCTS (Firestore + Local Images)
+/* --------------------------------------------------
+   PUBLIC: Get All Products
 -------------------------------------------------- */
 exports.getAllProducts = async (req, res) => {
   try {
-    const snapshot = await db.collection("products").get();
+    const snap = await db.collection("products")
+      .orderBy("createdAt", "desc")
+      .get();
 
-    const products = snapshot.docs.map((doc) => {
-      const p = doc.data();
-      const images = loadImagesForProduct(p.slug, req);
+    const products = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
-      return {
-        id: doc.id,
-        ...p,
-        imageUrls: images,
-      };
-    });
-
-    res.json(products);
-  } catch (error) {
-    console.error("❌ Firestore fetch error:", error);
-    res.status(500).json({ message: "Server Error" });
+    res.json({ success: true, products });
+  } catch (err) {
+    console.error("getAllProducts error:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch products" });
   }
 };
 
-/* ------------------------------------------------
-   GET PRODUCT BY ID
+/* --------------------------------------------------
+   PUBLIC: Get Product by ID
 -------------------------------------------------- */
 exports.getProductById = async (req, res) => {
   try {
-    const id = req.params.id;
+    const doc = await db.collection("products").doc(req.params.id).get();
 
-    const doc = await db.collection("products").doc(id).get();
     if (!doc.exists) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    const product = doc.data();
-    const images = loadImagesForProduct(product.slug, req);
-
-    res.json({
-      id,
-      ...product,
-      imageUrls: images,
-    });
-  } catch (error) {
-    console.error("❌ Product fetch error:", error);
-    res.status(500).json({ message: "Server Error" });
-  }
-};
-
-/* ------------------------------------------------
-   CREATE PRODUCT
--------------------------------------------------- */
-exports.createProduct = async (req, res) => {
-  try {
-    const slug = req.body.slug;
-    await db.collection("products").doc(slug).set({
-      ...req.body,
-      createdAt: new Date(),
-    });
-
-    res.status(201).json({ message: "Product created" });
+    res.json({ success: true, id: doc.id, ...doc.data() });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Create failed" });
+    console.error("getProductById error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-/* ------------------------------------------------
-   UPDATE PRODUCT
+/* --------------------------------------------------
+   ADMIN: Create Product with Image Upload
+-------------------------------------------------- */
+exports.createProductWithImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Image required" });
+    }
+
+    const { originalname, buffer, mimetype } = req.file;
+    const { name, category, price } = req.body;
+
+    const filename = `${Date.now()}_${originalname.replace(/\s+/g, "_")}`;
+    const storagePath = `products/${category || "uncategorized"}/${filename}`;
+
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(storagePath);
+
+    await file.save(buffer, { metadata: { contentType: mimetype } });
+
+    const [imageUrl] = await file.getSignedUrl({
+      action: "read",
+      expires: "03-01-2030"
+    });
+
+    const productData = {
+      name,
+      category,
+      price: Number(price) || 0,
+      image: imageUrl,
+      storagePath,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const docRef = await db.collection("products").add(productData);
+
+    res.json({ success: true, id: docRef.id, product: productData });
+  } catch (err) {
+    console.error("createProductWithImage error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* --------------------------------------------------
+   ADMIN: Update Product
 -------------------------------------------------- */
 exports.updateProduct = async (req, res) => {
   try {
     await db.collection("products").doc(req.params.id).update({
       ...req.body,
-      updatedAt: new Date(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    res.json({ message: "Product updated" });
+    res.json({ success: true, message: "Product updated" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Update failed" });
+    console.error("updateProduct error:", err);
+    res.status(500).json({ success: false });
   }
 };
 
-/* ------------------------------------------------
-   DELETE PRODUCT
+/* --------------------------------------------------
+   ADMIN: Delete Product
 -------------------------------------------------- */
 exports.deleteProduct = async (req, res) => {
   try {
     await db.collection("products").doc(req.params.id).delete();
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Delete failed" });
+    console.error("deleteProduct error:", err);
+    res.status(500).json({ success: false });
   }
 };
